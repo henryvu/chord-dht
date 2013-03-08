@@ -113,7 +113,7 @@ public class ChordNode {
     }
     
     // calculate hash function 
-    public static int calculate_hash(String toBeHashed){
+    public static String calculate_hash(String toBeHashed){
 
         MessageDigest md = null;
         try{
@@ -129,14 +129,14 @@ public class ChordNode {
 
         //md.ha
         System.out.println(md.hashCode());
-//        //http://www.mkyong.com/java/java-sha-hashing-example/
-//        
-//        StringBuffer sb = new StringBuffer();
-//        for (int i = 0; i < byteData.length; i++) {
-//         sb.append(Integer.toString((byteData[i] & 0xff) + 0x100, 16).substring(1));
-//        }
+        //http://www.mkyong.com/java/java-sha-hashing-example/
+        
+        StringBuffer sb = new StringBuffer();
+        for (int i = 0; i < byteData.length; i++) {
+         sb.append(Integer.toString((byteData[i] & 0xff) + 0x100, 16).substring(1));
+        }
 
-        return md.hashCode();
+        return sb.toString();
 
     }
 
@@ -155,7 +155,7 @@ public class ChordNode {
          
          System.out.println("ip = " + chordNode.nodeAddress.getHostAddress());
          
-         int nodeAddressHash = calculate_hash(chordNode.nodeAddress+":"+chordNode.nodePort);
+         String nodeAddressHash = calculate_hash(chordNode.nodeAddress+":"+chordNode.nodePort);
 
          DatagramPacket receivePacket;
          String callerAddress;
@@ -178,77 +178,24 @@ public class ChordNode {
             
             //# receiving join call
             if (tokenized[0].equals("chord") && tokenized[1].equals("join") ){
-                   System.out.println("Join command received");
+                    System.out.println("Join command received");
 
                    
                     InetAddress callerIPaddress = null;
                     try {
                         callerIPaddress = InetAddress.getByName(tokenized[2]); //receivePacket.getAddress();
-                    } catch (UnknownHostException ex) {}
+                    } catch (UnknownHostException ex) {
+                        ex.printStackTrace();
+                    }
                     
                     int callerPort = Integer.parseInt(tokenized[3]);//receivePacket.getPort();
 
-                    int callerNodeAddressHash = calculate_hash(callerIPaddress+":"+callerPort);
+                    String callerNodeAddressHash = calculate_hash(callerIPaddress+":"+callerPort);
                     
-                    
-                    //System.out.println("t2 "+ tokenized[2] +" t3 "+tokenized[3]);
-                   
-//                   if (chordNode.predecessor == null && chordNode.successor.equals(chordNode.nodeAddress+":"+chordNode.nodePort) && nodeAddressHash > callerNodeAddressHash ){
-//                       
-//                       if (nodeAddressHash > callerNodeAddressHash ){
-//                           System.out.println("this is successor of caller node : call notify here");
-//                           
-//                           String notifyCaller = "make successor"+" "+chordNode.nodeAddress+" "+chordNode.nodePort;
-//                           
-//                           //setting the predecessor -- caller node is successor of this node
-//                           chordNode.predecessor = callerIPaddress+":"+callerPort;
-//                           
-//                           chordNode.sendData = notifyCaller.getBytes();
-//                           
-//                           DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,callerIPaddress,callerPort);
-//                            
-//                           System.out.println("callerIp "+ callerIPaddress +" port "+callerPort);
-//                           
-//                           try {
-//                                chordNode.nodeSocket.send(sendPacket);
-//                           } catch (IOException ex) {
-//                                Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
-//                                ex.printStackTrace();
-//                           }
-//                       
-//                       }
-//                       else{
-//                           System.out.println("this is predecessor of caller node");
-//                           
-//                           String notifyCaller = "make predecessor"+" "+chordNode.nodeAddress+" "+chordNode.nodePort;
-//                           
-//                           //setting the predecessor -- caller node is successor of this node
-//                           chordNode.successor = callerIPaddress+":"+callerPort;
-//                           
-//                           chordNode.sendData = notifyCaller.getBytes();
-//                           
-//                           DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,callerIPaddress,callerPort);
-//                            
-//                           System.out.println("callerIp "+ callerIPaddress +" port "+callerPort);
-//                           
-//                           try {
-//                                chordNode.nodeSocket.send(sendPacket);
-//                           } catch (IOException ex) {
-//                                Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
-//                                ex.printStackTrace();
-//                           }
-//                           
-//                       }
-//                   
-//                   }
-                    
-                   if(){
-                   
-                   
-                   
-                   } 
-                   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                   else if( callerNodeAddressHash  > nodeAddressHash && callerNodeAddressHash < calculate_hash(chordNode.successor()) ){
+                    System.out.println("caller ip in start of join" + callerIPaddress);
+
+                       
+                    if(( ( callerNodeAddressHash.compareTo(nodeAddressHash)>0 && callerNodeAddressHash.compareTo(calculate_hash(chordNode.successor())) < 0 ) )){
                        System.out.println("this is successor of caller node : call notify here 2nd cond");
 
                            // send address of successor to caller node
@@ -271,48 +218,102 @@ public class ChordNode {
                                 Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
                                 ex.printStackTrace();
                            }
-                           
-                           // send message to predecessor
-//                           chordNode.sendData = notifyPredecessor.getBytes();
-//                            try {
-//                                sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,
-//                                                        InetAddress.getByName(chordNode.predecessor.split(":")[0]),Integer.parseInt(chordNode.predecessor.split(":")[1]));
-//                            } catch (UnknownHostException ex) {
-//                                Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
-//                            }
-//                            
-//                           System.out.println("callerIp "+ callerIPaddress +" port "+callerPort);
-//                           
-//                           try {
-//                                chordNode.nodeSocket.send(sendPacket);
-//                           } catch (IOException ex) {
-//                                Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
-//                                ex.printStackTrace();
-//                           }
-                           
-                       
-                   
+                                                   
+                                        
                    }
+                    // me > my suc && caller > my.suc && 
+                    else if (nodeAddressHash.compareTo(calculate_hash(chordNode.successor())) >= 0 && callerNodeAddressHash.compareTo(nodeAddressHash)>0 ) {
+
+                        System.out.println("this is successor of caller node : call notify here 1st cond + this is last node");
+
+                        // send address of successor to caller node
+                        String notifyCaller = "make successor"+" "+(chordNode.successor().split(":"))[0] +" "+(chordNode.successor().split(":"))[1];
+
+                        System.out.println("suc ip " + (chordNode.successor().split(":"))[0]);
+                        //String notifyPredecessor = "change successor"+" "+callerIPaddress+":"+callerPort;
+
+                        //setting the predecessor -- caller node is successor of this node
+                        chordNode.successor = callerIPaddress+":"+callerPort;
+
+                        chordNode.sendData = notifyCaller.getBytes();
+
+                        DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,callerIPaddress,callerPort);
+
+                        System.out.println("callerIp "+ callerIPaddress +" port "+callerPort);
+
+                        try {
+                            chordNode.nodeSocket.send(sendPacket);
+                        } catch (IOException ex) {
+                            Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                            ex.printStackTrace();
+                        }
+
+
+
+                    }
+                    else if ( callerNodeAddressHash.compareTo(calculate_hash(chordNode.successor()))< 0  && nodeAddressHash.compareTo(calculate_hash(chordNode.successor()))>=0 ){
+
+                        System.out.println("this is successor of caller node : call notify here 1st cond + this is last node");
+
+                        // send address of successor to caller node
+                        String notifyCaller = "make successor"+" "+(chordNode.successor().split(":"))[0] +" "+(chordNode.successor().split(":"))[1];
+
+                        System.out.println("suc ip " + (chordNode.successor().split(":"))[0]);
+                        //String notifyPredecessor = "change successor"+" "+callerIPaddress+":"+callerPort;
+
+                        //setting the predecessor -- caller node is successor of this node
+                        chordNode.successor = callerIPaddress+":"+callerPort;
+
+                        chordNode.sendData = notifyCaller.getBytes();
+
+                        DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,callerIPaddress,callerPort);
+
+                        System.out.println("callerIp "+ callerIPaddress +" port "+callerPort);
+
+                        try {
+                            chordNode.nodeSocket.send(sendPacket);
+                        } catch (IOException ex) {
+                            Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                            ex.printStackTrace();
+                        }
+
+
+                    }
                    else {
                        
                        System.out.println("Forwarding to my successor");
                        
-                       String forwardToSuccessor = "chord join"+" "+ callerIPaddress+" "+callerPort;
+                       
+//                    try {
+//                        callerIPaddress = InetAddress.getByName(tokenized[2]); //receivePacket.getAddress();
+//                    } catch (UnknownHostException ex) {
+//                        ex.printStackTrace();
+//                    }
+                                           
+                       //String forwardToSuccessor = "chord join"+" "+callerIPaddress+" "+callerPort;
+                      
+                       String forwardToSuccessor = "chord join"+" "+tokenized[2]+" "+callerPort;
+                      
                        
                        chordNode.sendData = forwardToSuccessor.getBytes();
+                       
+                       System.out.println("caller ip  " + tokenized[2] );
+                       
+                       InetAddress sendIPAddress = null;
+                       //((chordNode.successor()).split(":")[0]).substring(1)
                         try {
-                            chordNode.sendIPAddress = InetAddress.getByName((chordNode.successor()).split(":")[0]);
+                            sendIPAddress = InetAddress.getByName(((chordNode.successor()).split(":")[0]).substring(1));
                         } catch (UnknownHostException ex) {
                             Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                        chordNode.sendPort = Integer.parseInt((chordNode.successor()).split(":")[1]);
+                        int sendPort = Integer.parseInt((chordNode.successor()).split(":")[1]);
                        
                        
                        
                            
-                        DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,chordNode.sendIPAddress,chordNode.sendPort);
+                        DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,sendIPAddress,sendPort);
 
-                        System.out.println("sendIp "+ chordNode.sendIPAddress +" port "+chordNode.sendPort);
+                        System.out.println("sendIp "+  sendIPAddress +" port "+ sendPort);
 
                         try {
                                 chordNode.nodeSocket.send(sendPacket);
@@ -329,8 +330,8 @@ public class ChordNode {
             // receiving makeMeSuccessor Command
             if (tokenized[0].equals("make") && tokenized[1].equals("successor")){
                 System.out.println("make successor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
-                
-                chordNode.successor = receivePacket.getAddress()+":"+receivePacket.getPort();            
+                                             
+                chordNode.successor =  tokenized[2]+":"+tokenized[3] ;//receivePacket.getAddress()+":"+receivePacket.getPort();            
             }
             // receiving make predecessor Command
             if (tokenized[0].equals("make") && tokenized[1].equals("predecessor")){
