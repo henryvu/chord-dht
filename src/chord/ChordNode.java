@@ -1,4 +1,3 @@
-
 package chord;
 
 import java.io.*;
@@ -7,12 +6,14 @@ import java.net.DatagramSocket;
 import java.security.MessageDigest;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  *
  * @author Junaid
+ * @date March 2013
  */
 public class ChordNode {
     private DatagramSocket nodeSocket;
@@ -33,6 +34,10 @@ public class ChordNode {
     private InetAddress sendIPAddress;
     private int sendPort;
     
+    // hash map to store key/value pair for current node
+    private static Map<String,String> files = new HashMap<>();
+    // hash map to store hash/ip of keys and thier owners
+    private static Map<String,String> hashes = new HashMap<>();
     
     // constructor
     private ChordNode (int port ){
@@ -111,6 +116,74 @@ public class ChordNode {
     
     
     }
+    /*
+     * add a key to DHT
+     * 
+     */
+    public void addKey(String key, String value){
+        
+        this.files.put(key, value);
+        
+        this.addKeypart(key, this.nodeAddress+":"+this.nodePort);
+        
+        
+        
+    
+    }
+    
+    private void addKeypart(String key, String address){
+    
+        String tokenized[] = this.successor.split(":"); 
+        
+        System.out.println("in add key part  -> "+tokenized[0].split("/")[1] +" "+tokenized[1]);
+        
+        String tokenized_y[] = address.split(":");
+        
+        String myHash = calculate_hash(this.nodeAddress.toString()+":"+this.nodePort);
+        
+        InetAddress successorAddress = null;
+        try {
+            successorAddress = InetAddress.getByName(tokenized[0].split("/")[1]); //receivePacket.getAddress();
+        } catch (UnknownHostException ex) {
+            ex.printStackTrace();
+        }
+
+        int successorPort = Integer.parseInt(tokenized[1]);//receivePacket.getPort();
+        
+        System.out.println(calculate_hash(key));
+        System.out.println(myHash);
+        
+        
+        if (  ( (calculate_hash(key).compareTo(myHash) > 0)&&(calculate_hash(key).compareTo(calculate_hash(this.successor)) < 0 ) )|| myHash.compareTo(calculate_hash(this.successor)) >= 0){ //|| 
+            
+            System.out.println("key value pair has been put");
+            this.hashes.put(calculate_hash(key),address);
+            // ask seccessor to add it to his table
+            // this is yet to be done
+            // also have to implement boundry condition
+                
+        }
+        else{
+            //initiate request to successor to find appropriate place for the key
+            String addKeyCommand = "add key"+" "+key+" "+tokenized_y[0]+":"+tokenized_y[1];
+            
+            this.sendData = addKeyCommand.getBytes();
+
+            DatagramPacket sendPacket = new DatagramPacket(this.sendData, this.sendData.length,successorAddress,successorPort);
+
+            System.out.println("add request sent to  "+ successorAddress +" port "+successorPort);
+
+            try {
+                this.nodeSocket.send(sendPacket);
+            } catch (IOException ex) {
+                Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                ex.printStackTrace();
+            }
+        }
+            
+
+    
+    }
     
     // calculate hash function 
     public static String calculate_hash(String toBeHashed){
@@ -128,7 +201,7 @@ public class ChordNode {
         byte byteData[] = md.digest();
 
         //md.ha
-        System.out.println(md.hashCode());
+        //System.out.println(md.hashCode());
         //http://www.mkyong.com/java/java-sha-hashing-example/
         
         StringBuffer sb = new StringBuffer();
@@ -138,6 +211,19 @@ public class ChordNode {
 
         return sb.toString();
 
+    }
+    // printer method
+    
+    public void printKeyTable(){
+    
+        System.out.println("\nEntries in held by this node");
+        System.out.println("Size : "+hashes.size());
+        for(Iterator<String> it3 = hashes.keySet().iterator(); it3.hasNext();) {
+            String key = it3.next();
+            System.out.println(key +" : " + hashes.get(key));
+        }
+    
+    
     }
 
     
@@ -172,10 +258,8 @@ public class ChordNode {
 
             tokenized= sentence.split("\\s");
             
-            System.out.println("Raw received message  " + sentence);
-            //callerAddress = temp.split(":");
-            
-            
+            System.out.println("@@Rawform received message  " + sentence);
+
             //# receiving join call
             if (tokenized[0].equals("chord") && tokenized[1].equals("join") ){
                     System.out.println("Join command received");
@@ -282,13 +366,6 @@ public class ChordNode {
                    else {
                        
                        System.out.println("Forwarding to my successor");
-                       
-                       
-//                    try {
-//                        callerIPaddress = InetAddress.getByName(tokenized[2]); //receivePacket.getAddress();
-//                    } catch (UnknownHostException ex) {
-//                        ex.printStackTrace();
-//                    }
                                            
                        //String forwardToSuccessor = "chord join"+" "+callerIPaddress+" "+callerPort;
                       
@@ -302,7 +379,7 @@ public class ChordNode {
                        InetAddress sendIPAddress = null;
                        //((chordNode.successor()).split(":")[0]).substring(1)
                         try {
-                            sendIPAddress = InetAddress.getByName(((chordNode.successor()).split(":")[0]).substring(1));
+                            sendIPAddress = InetAddress.getByName(((chordNode.successor()).split(":")[0]));//.substring(1)
                         } catch (UnknownHostException ex) {
                             Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -333,18 +410,27 @@ public class ChordNode {
                                              
                 chordNode.successor =  tokenized[2]+":"+tokenized[3] ;//receivePacket.getAddress()+":"+receivePacket.getPort();            
             }
-            // receiving make predecessor Command
+            // receiving make predecessor Command -- not used 
             if (tokenized[0].equals("make") && tokenized[1].equals("predecessor")){
                 System.out.println("make predecessor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
                 
                 chordNode.predecessor = receivePacket.getAddress()+":"+receivePacket.getPort();            
             }
-            // changing successor
+            // changing successor -- not used 
             if (tokenized[0].equals("change") && tokenized[1].equals("successor")){
                 System.out.println("change successor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
                 
                 chordNode.successor = tokenized[2]+":"+tokenized[3];            
             }
+            
+            //receiving add key request
+            if (tokenized[0].equals("add") && tokenized[1].equals("key")){
+                
+                System.out.println("Add key command received");
+                chordNode.addKeypart(tokenized[2], tokenized[3]);
+                              
+            }
+            
 
          }
 
@@ -373,17 +459,12 @@ public class ChordNode {
         
         Thread listener1 = new Thread (new Listner());
         listener1.start();
-        //listener1.interrupt();
-        
-        //input = inFromUser.readLine();
-        
-        //chordNode.join(input);
-        
-        
+
         while (true){
         
-            input = inFromUser.readLine();
+            System.out.println("Enter ip:port to join network ");
             
+            input = inFromUser.readLine();     
             
             if (input.equals("p")){
                 System.out.println( chordNode.predecessor() );
@@ -394,14 +475,16 @@ public class ChordNode {
             else if (input.contains(":")) {
                 chordNode.join(input);
             }
+            else if (input.split("\\s")[0].equals("add")){
+                
+                chordNode.addKey(input.split("\\s")[1], input.split("\\s")[2]);
             
-            //chordNode.sendData = input.getBytes();
+            }
+            else if (input.equals("print")){
             
-            //DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,chordNode.sendIPAddress,chordNode.sendPort);
-             
-            //chordNode.nodeSocket.send(sendPacket);
-        
-        
+                chordNode.printKeyTable();
+            }
+      
         }
         
         
