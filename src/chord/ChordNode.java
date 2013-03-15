@@ -153,11 +153,16 @@ public class ChordNode {
         System.out.println(calculate_hash(key));
         System.out.println(myHash);
         
+        String addKeyCommand = null;
         
         if (  ( (calculate_hash(key).compareTo(myHash) > 0)&&(calculate_hash(key).compareTo(calculate_hash(this.successor)) < 0 ) )|| myHash.compareTo(calculate_hash(this.successor)) >= 0){ //|| 
             
             System.out.println("key value pair has been put");
-            this.hashes.put(calculate_hash(key),address);
+            //this.hashes.put(calculate_hash(key),address);
+            
+            //ask successor to keep the key 
+            addKeyCommand = "keep key"+" "+key+" "+tokenized_y[0]+":"+tokenized_y[1];
+            System.out.println("keep request sent to  "+ successorAddress +" port "+successorPort);
             // ask seccessor to add it to his table
             // this is yet to be done
             // also have to implement boundry condition
@@ -165,13 +170,17 @@ public class ChordNode {
         }
         else{
             //initiate request to successor to find appropriate place for the key
-            String addKeyCommand = "add key"+" "+key+" "+tokenized_y[0]+":"+tokenized_y[1];
+            addKeyCommand = "add key"+" "+key+" "+tokenized_y[0]+":"+tokenized_y[1];
+            System.out.println("add request sent to  "+ successorAddress +" port "+successorPort);
             
+        }    
+            
+        
             this.sendData = addKeyCommand.getBytes();
 
             DatagramPacket sendPacket = new DatagramPacket(this.sendData, this.sendData.length,successorAddress,successorPort);
 
-            System.out.println("add request sent to  "+ successorAddress +" port "+successorPort);
+           
 
             try {
                 this.nodeSocket.send(sendPacket);
@@ -179,7 +188,7 @@ public class ChordNode {
                 Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
                 ex.printStackTrace();
             }
-        }
+        
             
 
     
@@ -429,6 +438,13 @@ public class ChordNode {
                 System.out.println("Add key command received");
                 chordNode.addKeypart(tokenized[2], tokenized[3]);
                               
+            }
+            
+            // receiving command to put the key to my hashmap
+            if (tokenized[0].equals("keep") && tokenized[1].equals("key")){
+            
+                chordNode.hashes.put(calculate_hash(tokenized[2]),tokenized[3]);
+            
             }
             
 
