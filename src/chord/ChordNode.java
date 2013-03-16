@@ -1,6 +1,5 @@
 package chord;
 
-import com.sun.jndi.cosnaming.IiopUrl;
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -114,11 +113,47 @@ public class ChordNode {
     /* notify(address of predecessor)
      * 
      */
-    public void notify(String Address){
+    public void notify(String address) throws UnknownHostException{
     
+        String keysToBeTransfered= "transfered keys"+" ";
+        
+        if (this.predecessor == null || this.predecessor.equals(address)){
+            this.predecessor = address;
+            // prepare to send keys
+            
+            for(Iterator<String> it3 = hashes.keySet().iterator(); it3.hasNext();) {
+                String key = it3.next();
+
+                if (key.compareTo(calculate_hash(key)) < 0){
+                    
+                    keysToBeTransfered += key+"-"+hashes.get(key)+"*";
+
+                }
+                
+            }
+            
+            this.dispatcher(keysToBeTransfered, address);
+            
+            
+        
+        }
     
     
     }
+    
+    /*
+     *Stablize function  
+     * 
+     */
+    public void stabilize() throws UnknownHostException{
+        // ask successor about its predecessor
+        
+        String stabilizeCommand = "tell predecessor";
+        this.dispatcher(stabilizeCommand, this.successor);
+        
+    }
+    
+    
     /*
      * add a key to DHT
      * 
@@ -195,6 +230,32 @@ public class ChordNode {
             
 
     
+    }
+    
+    /*
+     * dispatcher method
+     * send data on socket
+     */
+    public void dispatcher(String dataToSend,String address) throws UnknownHostException{
+    
+        
+        String tokenized[] =  address.split(":");
+
+        InetAddress ip = InetAddress.getByName(tokenized[0].split("/")[1]);
+        
+        int port = Integer.parseInt(tokenized[1]);
+        
+        this.sendData = dataToSend.getBytes();
+
+        DatagramPacket sendPacket = new DatagramPacket(this.sendData, this.sendData.length,ip,port);
+
+        try {
+            this.nodeSocket.send(sendPacket);
+        } catch (IOException ex) {
+            Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
+        } 
+        
     }
     /*
      * get method
@@ -295,7 +356,35 @@ public class ChordNode {
         }
     
     }
+    /* leave dht ring
+    * 
+    */
+    public void leave() throws UnknownHostException{
+        
+        String messageToSuccessor = "make predecessor"+" "+this.predecessor;
+        String messageToPredecessor = "make successorNew"+" "+this.successor.split(":")[0]+" "+this.successor.split(":")[1];
+        String sendKeysToSuccessor = "transfered keys"+" ";
+        
+        for(Iterator<String> it3 = hashes.keySet().iterator(); it3.hasNext();) {
+                String key = it3.next();
+
+                if (key.compareTo(calculate_hash(key)) < 0){
+                    
+                    sendKeysToSuccessor += key+"-"+hashes.get(key)+"*";
+
+                }
+                
+        }
+        
+        this.dispatcher(sendKeysToSuccessor, this.successor);
+        this.dispatcher(messageToSuccessor, this.successor);
+        this.dispatcher(messageToPredecessor, this.predecessor);
+        
+        
+        
     
+    }
+
     // calculate hash function 
     public static String calculate_hash(String toBeHashed){
 
@@ -337,6 +426,38 @@ public class ChordNode {
     
     }
 
+    /* send predecessor command
+     * asking current successor to change it predecessor
+     */
+    public void changePredecessor(String address){
+    
+        String makePredecessorCommand = "make predecessor"+" "+address;
+        
+        this.sendData = makePredecessorCommand.getBytes();
+        
+        
+        String tokenized[] = this.successor.split(":"); 
+
+        InetAddress successorAddress = null;
+        try {
+            successorAddress = InetAddress.getByName(tokenized[0].split("/")[1]); //receivePacket.getAddress();
+        } catch (UnknownHostException ex) {
+            ex.printStackTrace();
+        }
+
+        int successorPort = Integer.parseInt(tokenized[1]);//receivePacket.getPort();
+            
+        DatagramPacket sendPacket = new DatagramPacket(this.sendData, this.sendData.length,successorAddress,successorPort);
+
+        try {
+            chordNode.nodeSocket.send(sendPacket);
+        } catch (IOException ex) {
+            Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
+        }
+        
+        
+    }
     
     // listener class 
     private static class Listner implements Runnable {
@@ -396,9 +517,9 @@ public class ChordNode {
                            // send address of successor to caller node
                            String notifyCaller = "make successor"+" "+(chordNode.successor().split(":"))[0] +" "+(chordNode.successor().split(":"))[1];
                            
-                           //String notifyPredecessor = "change successor"+" "+callerIPaddress+":"+callerPort;
+                           //temp change
+                           chordNode.changePredecessor(callerIPaddress+":"+callerPort);
                            
-                           //setting the predecessor -- caller node is successor of this node
                            chordNode.successor = callerIPaddress+":"+callerPort;
                            
                            chordNode.sendData = notifyCaller.getBytes();
@@ -427,8 +548,14 @@ public class ChordNode {
                         System.out.println("suc ip " + (chordNode.successor().split(":"))[0]);
                         //String notifyPredecessor = "change successor"+" "+callerIPaddress+":"+callerPort;
 
+                        
+                        //temp change
+                        chordNode.changePredecessor(callerIPaddress+":"+callerPort);
+                           
+                        
+                        
                         //setting the predecessor -- caller node is successor of this node
-                        chordNode.successor = callerIPaddress+":"+callerPort;
+                        chordNode.successor = callerIPaddress+":"+callerPort;//?????????????????
 
                         chordNode.sendData = notifyCaller.getBytes();
 
@@ -456,6 +583,11 @@ public class ChordNode {
                         System.out.println("suc ip " + (chordNode.successor().split(":"))[0]);
                         //String notifyPredecessor = "change successor"+" "+callerIPaddress+":"+callerPort;
 
+                        //temp change
+                        chordNode.changePredecessor(callerIPaddress+":"+callerPort);
+                           
+                        
+                        
                         //setting the predecessor -- caller node is successor of this node
                         chordNode.successor = callerIPaddress+":"+callerPort;
 
@@ -519,14 +651,26 @@ public class ChordNode {
             if (tokenized[0].equals("make") && tokenized[1].equals("successor")){
                 System.out.println("make successor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
                                              
-                chordNode.successor =  tokenized[2]+":"+tokenized[3] ;//receivePacket.getAddress()+":"+receivePacket.getPort();            
+                chordNode.successor =  tokenized[2]+":"+tokenized[3] ;//receivePacket.getAddress()+":"+receivePacket.getPort();        
+                
+                chordNode.predecessor = receivePacket.getAddress()+":"+receivePacket.getPort();
+                
+                
             }
-            // receiving make predecessor Command -- not used 
+            // make successor new 
+            else if (tokenized[0].equals("make") && tokenized[1].equals("successorNew")){
+                System.out.println("make successor new command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
+                                             
+                chordNode.successor =  tokenized[2]+":"+tokenized[3] ;//receivePacket.getAddress()+":"+receivePacket.getPort();        
+   
+            }
+            // receiving make predecessor Command  
             else if (tokenized[0].equals("make") && tokenized[1].equals("predecessor")){
                 System.out.println("make predecessor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
                 
-                chordNode.predecessor = receivePacket.getAddress()+":"+receivePacket.getPort();            
+                chordNode.predecessor = tokenized[2];            
             }
+            
             // changing successor -- not used 
             else if (tokenized[0].equals("change") && tokenized[1].equals("successor")){
                 System.out.println("change successor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
@@ -586,6 +730,70 @@ public class ChordNode {
             
             }
             
+            else if (tokenized[0].equals("tell") && tokenized[1].equals("predecessor")){
+            
+                String response = "tell responseTopredecessor"+" "+chordNode.predecessor;
+                
+                try {
+                    chordNode.dispatcher(response, receivePacket.getAddress()+":"+receivePacket.getPort());
+                } catch (UnknownHostException ex) {
+                    Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            
+            
+            }
+            
+            else if (tokenized[0].equals("tell") && tokenized[1].equals("responseTopredecessor")){
+            
+                System.out.println("response " + tokenized[2]);
+                
+                if (tokenized[2].equals(chordNode.nodeAddress+":"+chordNode.nodePort)){
+                    System.out.println("The link is consistent. Ask successor to give me keys which are less than me");
+                    String response = "notify";
+                    
+                    try {
+                        chordNode.dispatcher(response, receivePacket.getAddress()+":"+receivePacket.getPort());
+                    } catch (UnknownHostException ex) {
+                        Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    
+                }
+            
+            }
+            
+            else if (tokenized[0].equals("notify")){
+                try {
+                    chordNode.notify(receivePacket.getAddress()+":"+receivePacket.getPort());
+                } catch (UnknownHostException ex) {
+                    Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            
+            else if (tokenized[0].equals("transfered") && tokenized[1].equals("keys")){
+                System.out.println("keys has been received");
+                
+                if (tokenized.length > 2){
+                    System.out.println(tokenized[2]);
+
+                    String tokenizedKeyVal[] = tokenized[2].split("\\*");
+
+                    int i = 0;
+                    while (tokenizedKeyVal[i] != null ){
+                        System.out.println(tokenizedKeyVal[i].split("\\-")[0] +" && " +tokenizedKeyVal[i].split("\\-")[1]);
+
+                        chordNode.hashes.put(tokenizedKeyVal[i].split("\\-")[0],tokenizedKeyVal[i].split("\\-")[1]);
+
+                        i++;
+                        if (i >= tokenizedKeyVal.length){
+                            break;
+                        }
+
+                    }
+                }
+                //
+                
+            }
+            
 
          }
 
@@ -615,10 +823,10 @@ public class ChordNode {
         Thread listener1 = new Thread (new Listner());
         listener1.start();
 
+        System.out.println("Enter ip:port to join network ");
         while (true){
-        
-            System.out.println("Enter ip:port to join network ");
-            
+                
+           
             input = inFromUser.readLine();     
             
             if (input.equals("p")){
@@ -642,6 +850,13 @@ public class ChordNode {
             else if (input.split("\\s")[0].equals("get")){
                 chordNode.get(input.split("\\s")[1]);
             
+            }
+            else if (input.equals("stabilize")){
+                chordNode.stabilize();
+            
+            }
+            else if (input.equals("leave")){
+                chordNode.leave();
             }
       
         }
