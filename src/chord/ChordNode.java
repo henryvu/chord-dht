@@ -1,5 +1,6 @@
 package chord;
 
+import com.sun.jndi.cosnaming.IiopUrl;
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -34,8 +35,9 @@ public class ChordNode {
     private InetAddress sendIPAddress;
     private int sendPort;
     
-    // hash map to store key/value pair for current node
+    // hash map to store hash(key)/value pair for current node
     private static Map<String,String> files = new HashMap<>();
+    private static ArrayList filesName = new ArrayList();
     // hash map to store hash/ip of keys and thier owners
     private static Map<String,String> hashes = new HashMap<>();
     
@@ -53,7 +55,8 @@ public class ChordNode {
       try {
             // local ip address
          nodeAddress = InetAddress.getLocalHost();
-         //nodeAddress = nodeAddress.getHostAddress();
+         String nodeAddr = nodeAddress.getHostAddress();
+         nodeAddress = InetAddress.getByName(nodeAddr);
       } catch (UnknownHostException ex) {
          Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
       }
@@ -122,7 +125,7 @@ public class ChordNode {
      */
     public void addKey(String key, String value){
         
-        this.files.put(key, value);
+        this.files.put(calculate_hash(key), value);
         
         this.addKeypart(key, this.nodeAddress+":"+this.nodePort);
         
@@ -191,6 +194,105 @@ public class ChordNode {
         
             
 
+    
+    }
+    /*
+     * get method
+     */
+    public void get(String key){
+        
+        String address = this.nodeAddress+":"+this.nodePort;
+        
+        getKeyPart(key, address);
+        
+    
+    }
+    
+    
+    /*
+     * get key part method
+     * get(key,resAddress)
+     * resAddress = response address
+     */
+    
+    public void getKeyPart(String key,String resAddress){
+        
+        //first find it in its own files
+        //String fileData = this.files.get(calculate_hash(key));
+        String fileData = null;
+        
+        
+        String keyHashValue = null;
+        keyHashValue = this.hashes.get(calculate_hash(key));
+
+        //if (fileData != null){
+        //    System.out.println("file found at this node");
+        //    System.out.println("value= " + fileData);
+        //}        
+        if(fileData == null && keyHashValue != null){
+            
+            System.out.println("file owner node found sending him a request to give the file");
+            //keyHashValue = this.hashes.get(calculate_hash(key));
+            // found the addess of owner
+            String tokenized[] = keyHashValue.split(":");
+            
+            InetAddress ownerAddress = null;
+            try {
+                ownerAddress = InetAddress.getByName(tokenized[0].split("/")[1]); //receivePacket.getAddress();
+            } catch (UnknownHostException ex) {
+                ex.printStackTrace();
+            }
+
+            int ownerPort = Integer.parseInt(tokenized[1]);//receivePacket.getPort();
+
+            // give data linked with key  command
+            
+            String giveKeyValueCommnand = "give key"+" "+calculate_hash(key)+" "+resAddress;
+             
+            this.sendData = giveKeyValueCommnand.getBytes();
+
+            DatagramPacket sendPacket = new DatagramPacket(this.sendData, this.sendData.length,ownerAddress,ownerPort);
+
+           
+
+            try {
+                this.nodeSocket.send(sendPacket);
+            } catch (IOException ex) {
+                Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                ex.printStackTrace();
+            }
+            
+            
+        }
+        else if (fileData == null && keyHashValue == null){
+            // forward request to successor
+            System.out.println("requesting successor to find the the key");
+            String getKeyCommand = "get key"+" "+key+" "+resAddress;
+            
+            String tokenized[] = this.successor.split(":"); 
+        
+            InetAddress successorAddress = null;
+            try {
+                successorAddress = InetAddress.getByName(tokenized[0].split("/")[1]); //receivePacket.getAddress();
+            } catch (UnknownHostException ex) {
+                ex.printStackTrace();
+            }
+
+            int successorPort = Integer.parseInt(tokenized[1]);//receivePacket.getPort();
+        
+            this.sendData = getKeyCommand.getBytes();
+
+            DatagramPacket sendPacket = new DatagramPacket(this.sendData, this.sendData.length,successorAddress,successorPort);
+
+            try {
+                this.nodeSocket.send(sendPacket);
+            } catch (IOException ex) {
+                Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                ex.printStackTrace();
+            }
+            
+            
+        }
     
     }
     
@@ -388,7 +490,7 @@ public class ChordNode {
                        InetAddress sendIPAddress = null;
                        //((chordNode.successor()).split(":")[0]).substring(1)
                         try {
-                            sendIPAddress = InetAddress.getByName(((chordNode.successor()).split(":")[0]));//.substring(1)
+                            sendIPAddress = InetAddress.getByName(((chordNode.successor()).split(":")[0]).split("/")[1]);//.substring(1)
                         } catch (UnknownHostException ex) {
                             Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -420,20 +522,20 @@ public class ChordNode {
                 chordNode.successor =  tokenized[2]+":"+tokenized[3] ;//receivePacket.getAddress()+":"+receivePacket.getPort();            
             }
             // receiving make predecessor Command -- not used 
-            if (tokenized[0].equals("make") && tokenized[1].equals("predecessor")){
+            else if (tokenized[0].equals("make") && tokenized[1].equals("predecessor")){
                 System.out.println("make predecessor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
                 
                 chordNode.predecessor = receivePacket.getAddress()+":"+receivePacket.getPort();            
             }
             // changing successor -- not used 
-            if (tokenized[0].equals("change") && tokenized[1].equals("successor")){
+            else if (tokenized[0].equals("change") && tokenized[1].equals("successor")){
                 System.out.println("change successor command received from " + receivePacket.getAddress() +":"+receivePacket.getPort());
                 
                 chordNode.successor = tokenized[2]+":"+tokenized[3];            
             }
             
             //receiving add key request
-            if (tokenized[0].equals("add") && tokenized[1].equals("key")){
+            else if (tokenized[0].equals("add") && tokenized[1].equals("key")){
                 
                 System.out.println("Add key command received");
                 chordNode.addKeypart(tokenized[2], tokenized[3]);
@@ -441,9 +543,46 @@ public class ChordNode {
             }
             
             // receiving command to put the key to my hashmap
-            if (tokenized[0].equals("keep") && tokenized[1].equals("key")){
+            else if (tokenized[0].equals("keep") && tokenized[1].equals("key")){
             
                 chordNode.hashes.put(calculate_hash(tokenized[2]),tokenized[3]);
+            
+            }
+            // receiving get key command 
+            else if (tokenized[0].equals("get")&&tokenized[1].equals("key")){
+                
+                // tokenized[2] = key  & tokenized[3] = response address
+                chordNode.getKeyPart(tokenized[2],tokenized[3]);
+            
+            }
+            // responding give key command
+            else if (tokenized[0].equals("give") && tokenized[1].equals("key")){
+                
+                String value = files.get(tokenized[2]);
+                
+                InetAddress tempAddress = null;//receivePacket.getAddress();
+                int tempPort = 0;//receivePacket.getPort();
+                
+                try {
+                    tempAddress = InetAddress.getByName( ((tokenized[3].split(":"))[0]).split("/")[1] );
+                } catch (UnknownHostException ex) {
+                    Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                tempPort =Integer.parseInt(tokenized[3].split(":")[1]);
+
+                chordNode.sendData = ("value= "+value).getBytes();
+
+                 DatagramPacket sendPacket = new DatagramPacket(chordNode.sendData, chordNode.sendData.length,tempAddress,tempPort);
+
+                try {
+                    chordNode.nodeSocket.send(sendPacket);
+                } catch (IOException ex) {
+                    Logger.getLogger(ChordNode.class.getName()).log(Level.SEVERE, null, ex);
+                    ex.printStackTrace();
+                }
+
+                
             
             }
             
@@ -492,13 +631,17 @@ public class ChordNode {
                 chordNode.join(input);
             }
             else if (input.split("\\s")[0].equals("add")){
-                
+                // make a put(key,value) method for this
                 chordNode.addKey(input.split("\\s")[1], input.split("\\s")[2]);
             
             }
             else if (input.equals("print")){
             
                 chordNode.printKeyTable();
+            }
+            else if (input.split("\\s")[0].equals("get")){
+                chordNode.get(input.split("\\s")[1]);
+            
             }
       
         }
